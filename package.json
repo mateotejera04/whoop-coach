@@ -14,8 +14,8 @@
     "prepare": "npm run build",
     "preview": "tsx src/preview.ts",
     "send-now": "tsx src/send-now.ts",
-    "scheduler": "tsx src/scheduler.ts",
-    "mcp-server": "tsx src/mcp-server.ts"
+    "mcp-server": "tsx src/mcp-server.ts",
+    "bootstrap-tokens": "tsx scripts/upload-tokens.ts"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -37,15 +37,14 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@upstash/redis": "^1.38.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.0",
-    "node-cron": "^4.2.1",
     "open": "^10.1.0",
     "twilio": "^6.0.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "@types/node-cron": "^3.0.11",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }
