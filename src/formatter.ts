@@ -25,7 +25,7 @@ export function formatMessage(
   lines.push('');
   lines.push('📊 Your metrics today');
   lines.push(`• Recovery: ${snapshot.recovery}%`);
-  lines.push(`• HRV: ${snapshot.hrv}ms`);
+  lines.push(`• HRV: ${Math.round(snapshot.hrv)}ms`);
   lines.push(`• Resting HR: ${snapshot.restingHr} bpm`);
   lines.push(
     `• Sleep: ${snapshot.sleepPerformance}% (${minutesToHm(snapshot.sleepDurationMin)})`
