@@ -2,8 +2,8 @@ export * from './api/client.js';
 export * from './types/whoop.js';
 
 import { getRecovery, getSleep, getCycle } from './api/client.js';
-import { getDateRange, getWhoopDay } from './utils/date.js';
-import type { WhoopRecovery, WhoopSleep, WhoopCycle } from './types/whoop.js';
+import { WhoopError, ExitCode } from './utils/errors.js';
+import type { WhoopRecovery, WhoopSleep } from './types/whoop.js';
 
 export interface DailySnapshot {
   date: string;
@@ -26,19 +26,24 @@ function pickLatest<T extends { updated_at?: string; created_at?: string }>(reco
 }
 
 export async function getTodaySnapshot(): Promise<DailySnapshot> {
-  const date = getWhoopDay();
-  const range = getDateRange(date);
-  const params = { start: range.start, end: range.end };
+  const cycles = await getCycle({ limit: 1 });
+  const cycle = cycles[0];
+  if (!cycle) {
+    throw new WhoopError('No WHOOP cycle data available', ExitCode.GENERAL_ERROR);
+  }
 
-  const [recoveryArr, sleepArr, cycleArr] = await Promise.all([
+  const params = {
+    start: cycle.start,
+    end: cycle.end ?? new Date().toISOString(),
+  };
+
+  const [recoveryArr, sleepArr] = await Promise.all([
     getRecovery(params),
     getSleep(params),
-    getCycle(params),
   ]);
 
   const recovery: WhoopRecovery | undefined = pickLatest(recoveryArr);
   const sleep: WhoopSleep | undefined = pickLatest(sleepArr.filter((s) => !s.nap));
-  const cycle: WhoopCycle | undefined = pickLatest(cycleArr);
 
   const sleepStage = sleep?.score?.stage_summary;
   const sleepInBedMs = sleepStage?.total_in_bed_time_milli ?? 0;
@@ -48,14 +53,16 @@ export async function getTodaySnapshot(): Promise<DailySnapshot> {
   const need = sleep?.score?.sleep_needed;
   const sleepDebtMin = need ? Math.round(need.need_from_sleep_debt_milli / 60000) : 0;
 
+  const embeddedRecovery = cycle.recovery;
+
   return {
-    date,
-    recovery: recovery?.score?.recovery_score ?? 0,
-    hrv: recovery?.score?.hrv_rmssd_milli ?? 0,
-    restingHr: recovery?.score?.resting_heart_rate ?? 0,
+    date: cycle.start.slice(0, 10),
+    recovery: recovery?.score?.recovery_score ?? embeddedRecovery?.recovery_score ?? 0,
+    hrv: recovery?.score?.hrv_rmssd_milli ?? embeddedRecovery?.hrv_rmssd_milli ?? 0,
+    restingHr: recovery?.score?.resting_heart_rate ?? embeddedRecovery?.resting_heart_rate ?? 0,
     sleepPerformance: sleep?.score?.sleep_performance_percentage ?? 0,
     sleepDurationMin,
     sleepDebtMin,
-    strain: cycle?.score?.strain ?? 0,
+    strain: cycle.score?.strain ?? 0,
   };
 }
