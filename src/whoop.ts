@@ -3,6 +3,7 @@ export * from './types/whoop.js';
 
 import { getRecovery, getSleep, getCycle } from './api/client.js';
 import { WhoopError, ExitCode } from './utils/errors.js';
+import { analyzeTrends, type TrendData } from './utils/analysis.js';
 import type { WhoopRecovery, WhoopSleep } from './types/whoop.js';
 
 export interface DailySnapshot {
@@ -65,4 +66,16 @@ export async function getTodaySnapshot(): Promise<DailySnapshot> {
     sleepDebtMin,
     strain: cycle.score?.strain ?? 0,
   };
+}
+
+export async function getTrends(days: number = 7): Promise<TrendData> {
+  const end = new Date();
+  const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+  const params = { start: start.toISOString(), end: end.toISOString() };
+  const [recovery, sleep, cycle] = await Promise.all([
+    getRecovery(params, true),
+    getSleep(params, true),
+    getCycle(params, true),
+  ]);
+  return analyzeTrends(recovery, sleep, cycle, days);
 }
