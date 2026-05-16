@@ -1,17 +1,24 @@
-import { Redis } from '@upstash/redis';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { TokenData, OAuthTokenResponse } from '../types/whoop.js';
 import { WhoopError, ExitCode } from '../utils/errors.js';
 
-const TOKEN_KEY = 'whoop:tokens';
+const CONFIG_DIR = join(homedir(), '.whoop-cli');
+const TOKEN_FILE = join(CONFIG_DIR, 'tokens.json');
+
+// Refresh tokens 15 minutes before expiry to avoid race conditions
 const REFRESH_BUFFER_SECONDS = 900;
 
-let _redis: Redis | null = null;
-function redis(): Redis {
-  if (!_redis) _redis = Redis.fromEnv();
-  return _redis;
+function ensureConfigDir(): void {
+  if (!existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
+  }
 }
 
-export async function saveTokens(response: OAuthTokenResponse): Promise<void> {
+export function saveTokens(response: OAuthTokenResponse): void {
+  ensureConfigDir();
+
   const data: TokenData = {
     access_token: response.access_token,
     refresh_token: response.refresh_token,
@@ -19,15 +26,28 @@ export async function saveTokens(response: OAuthTokenResponse): Promise<void> {
     token_type: response.token_type,
     scope: response.scope,
   };
-  await redis().set(TOKEN_KEY, data);
+
+  writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
+  chmodSync(TOKEN_FILE, 0o600);
 }
 
-export async function loadTokens(): Promise<TokenData | null> {
-  return await redis().get<TokenData>(TOKEN_KEY);
+export function loadTokens(): TokenData | null {
+  if (!existsSync(TOKEN_FILE)) {
+    return null;
+  }
+
+  try {
+    const content = readFileSync(TOKEN_FILE, 'utf-8');
+    return JSON.parse(content) as TokenData;
+  } catch {
+    return null;
+  }
 }
 
-export async function clearTokens(): Promise<void> {
-  await redis().del(TOKEN_KEY);
+export function clearTokens(): void {
+  if (existsSync(TOKEN_FILE)) {
+    writeFileSync(TOKEN_FILE, '');
+  }
 }
 
 export function isTokenExpired(tokens: TokenData): boolean {
@@ -70,12 +90,12 @@ export async function refreshAccessToken(tokens: TokenData): Promise<TokenData> 
   }
 
   const data = (await response.json()) as OAuthTokenResponse;
-  await saveTokens(data);
-  return (await loadTokens())!;
+  saveTokens(data);
+  return loadTokens()!;
 }
 
 export async function getValidTokens(): Promise<TokenData> {
-  let tokens = await loadTokens();
+  let tokens = loadTokens();
 
   if (!tokens) {
     throw new WhoopError('Not authenticated. Run: whoopskill auth login', ExitCode.AUTH_ERROR);
@@ -88,8 +108,8 @@ export async function getValidTokens(): Promise<TokenData> {
   return tokens;
 }
 
-export async function getTokenStatus(): Promise<{ authenticated: boolean; expires_at?: number }> {
-  const tokens = await loadTokens();
+export function getTokenStatus(): { authenticated: boolean; expires_at?: number } {
+  const tokens = loadTokens();
   if (!tokens) {
     return { authenticated: false };
   }

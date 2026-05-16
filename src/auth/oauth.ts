@@ -86,18 +86,18 @@ export async function login(): Promise<void> {
   }
 
   const tokens = (await tokenResponse.json()) as OAuthTokenResponse;
-  await saveTokens(tokens);
+  saveTokens(tokens);
   console.log('Authentication successful');
 }
 
-export async function logout(): Promise<void> {
-  await clearTokens();
+export function logout(): void {
+  clearTokens();
   console.log('Logged out');
 }
 
-export async function status(): Promise<void> {
-  const tokenStatus = await getTokenStatus();
-  const tokens = await loadTokens();
+export function status(): void {
+  const tokenStatus = getTokenStatus();
+  const tokens = loadTokens();
   
   if (!tokenStatus.authenticated) {
     console.log(JSON.stringify({ authenticated: false, message: 'Not logged in. Run: whoopskill auth login' }, null, 2));
@@ -122,7 +122,7 @@ export async function status(): Promise<void> {
  * Use this in cron jobs to keep tokens fresh.
  */
 export async function refresh(): Promise<void> {
-  const tokens = await loadTokens();
+  const tokens = loadTokens();
   
   if (!tokens) {
     throw new WhoopError('Not authenticated. Run: whoopskill auth login', ExitCode.AUTH_ERROR);

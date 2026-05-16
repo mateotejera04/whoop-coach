@@ -29,10 +29,10 @@ program
           await login();
           break;
         case 'logout':
-          await logout();
+          logout();
           break;
         case 'status':
-          await authStatus();
+          authStatus();
           break;
         case 'refresh':
           await authRefresh();
