@@ -181,4 +181,3 @@ npm run build    # Compile TypeScript
 ## License
 
 MIT
-
